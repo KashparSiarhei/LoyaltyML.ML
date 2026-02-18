@@ -244,7 +244,7 @@ async def health_check():
     }
 
 @app.post("/train")
-async def train_model(data: TrainingDataset, background_tasks: BackgroundTasks):
+async def train_model(data: TrainingConfig, background_tasks: BackgroundTasks):
     """
     Обучение модели рекомендаций
     """
@@ -262,15 +262,29 @@ async def train_model(data: TrainingDataset, background_tasks: BackgroundTasks):
     try:
         logger.info(f"Starting training for session {data.session_id}")
         
-        # 1. Преобразуем данные в DataFrame
-        interactions_df = pd.DataFrame([i.dict() for i in data.interactions])
+        # 1. Преобразуем данные в DataFrame с правильными именами полей
+        # Interactions - преобразуем имена полей в нижний регистр
+        interactions_data = []
+        for i in data.dataset.interactions:
+            interactions_data.append({
+                'customer_id': i.CustomerId,      # было CustomerId -> стало customer_id
+                'product_id': i.ProductId,        # было ProductId -> стало product_id
+                'timestamp': i.Timestamp,
+                'quantity': i.Quantity,
+                'price': i.Price
+            })
+        interactions_df = pd.DataFrame(interactions_data)
+        
+        # Customers - PhoneNumber -> customer_id, Features распаковываем
         customers_df = pd.DataFrame([
-            {'customer_id': c.phone_number, **c.features} 
-            for c in data.customers
+            {'customer_id': c.PhoneNumber, **c.Features} 
+            for c in data.dataset.customers
         ])
+        
+        # Products - ProductId -> product_id, Features распаковываем
         products_df = pd.DataFrame([
-            {'product_id': p.product_id, **p.features} 
-            for p in data.products
+            {'product_id': p.ProductId, **p.Features} 
+            for p in data.dataset.products
         ])
         
         # 2. Кодируем ID
